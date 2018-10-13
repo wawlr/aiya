@@ -21,7 +21,7 @@ def dealData():
     file_list = os.listdir(paper_file_path)
     for file in file_list:
         print(paper_file_path + "\\"+ file)
-        print(file[:-5])
+        # print(file[:-5])
         count = 0
         # paper.keys() 'doi', 'abstractUrl', 'Reference', 'Author', 'Abstract', 'Title', 'Cite', 'Volume', 'fullUrl', 'PublisherOrConference', 'AuthorInfo', 'Time', 'Keywords', 'Issue', 'Pages'
         # ID,doi,Title,Keywords,Abstract,Label
@@ -33,6 +33,12 @@ def dealData():
             else:
                 line = file_line.replace("},", "}")
                 line2 = json.loads(line)
+                # 打上标签
+                line2['Label'] = file[:-5]
+                texts_stemmed = cut_sentence(line2['Title'])
+                # print(count)
+                print(texts_stemmed)
+                # print("""""")
                 # print(line2)
 
 def deal_nlp(paper_json_dic):
@@ -52,18 +58,23 @@ def deal_nlp(paper_json_dic):
 
 # 分词，取实体词（动词、名词）
 def cut_sentence(sentence):
+    # 保留词性NNVB = ['CD','EX','FW','LS','NN','NNS','NNP','NNPS','PDT','POS','RP','VB','VBD','VBG','VBN','VBP','VBZ']
     from nltk.tokenize import word_tokenize
     from nltk.corpus import stopwords
     from nltk.stem.lancaster import LancasterStemmer
+    print("start:")
     texts_lower = [word for word in sentence.lower().split()]
-    texts_tokenized = [word.lower() for word in word_tokenize(sentence.decode('utf-8'))]
+    print(texts_lower)
+    texts_tokenized = [word.lower() for word in word_tokenize(sentence)]
+    texts_tokenized = nltk.pos_tag(texts_tokenized)
+    print(texts_tokenized)
     english_stopwords = stopwords.words('english')
     texts_filtered_stopwords = [word for word in texts_tokenized if not word in english_stopwords]
     english_punctuations = [',', '.', ':', ';', '?', '(', ')', '[', ']', '&', '!', '*', '@', '#', '$', '%']
     texts_filtered = [word for word in texts_filtered_stopwords if not word in english_punctuations]
-    st = LancasterStemmer()
-    texts_stemmed = [st.stem(word) for word in texts_filtered]
-    return texts_stemmed
+    # st = LancasterStemmer()
+    # texts_stemmed = [st.stem(word) for word in texts_filtered]
+    return texts_filtered
 
 # 计算共现词语数目
 def sum_word_number(list_1,list_2):
@@ -77,5 +88,5 @@ def sum_word_number(list_1,list_2):
 
 if __name__ == '__main__':
     start_time = time.time
-    nltk.download()
+
     dealData()
