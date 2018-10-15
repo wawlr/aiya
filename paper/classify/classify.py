@@ -17,6 +17,10 @@ import nltk
 
 
 def dealData():
+    # 写文件
+    path_write = "F:\\Data\\mixture\\paper_mixture.json"
+    write_lines = open(path_write, 'w', encoding='utf-8')
+
     paper_file_path = "F:\\Data\\data"
     file_list = os.listdir(paper_file_path)
     for file in file_list:
@@ -35,15 +39,36 @@ def dealData():
                 line2 = json.loads(line)
                 # 打上标签
                 line2['Label'] = file[:-5]
-                texts_stemmed = cut_sentence(line2['Title'])
-                # print(count)
-                print(texts_stemmed)
-                # print("""""")
-                # print(line2)
+                # 处理分词完毕再形成paper_dic
+                return_paper_json_dic = deal_nlp_dic(line2)
+                json_info = json.dumps(return_paper_json_dic, sort_keys=True)
+                write_lines.write(json_info+"\n")
+                # print("JSON输出：")
+                # print(type(json_info))
+                # print(json_info)
+                # texts_stemmed = cut_sentence(line2['Title'])
+                # print(texts_stemmed)
+
+    write_lines.close()
+
+
+def deal_nlp_dic(paper_json_dic):
+    return_paper_json_dic = {}
+    return_paper_json_dic['doi'] = paper_json_dic['doi']
+    return_paper_json_dic['Title'] = cut_sentence(paper_json_dic['Title'])
+    return_paper_json_dic['Abstract'] = cut_sentence(paper_json_dic['Abstract'])
+    # print("Keywords: "+str(paper_json_dic['Keywords']))
+    #### Keywords中间词用• 分隔开  .replace("• ","")
+    return_paper_json_dic['Keywords'] = " ".join(paper_json_dic['Keywords'])
+    # print("Keywords: " + str(return_paper_json_dic['Keywords']))
+    # print("Label: " + str(paper_json_dic['Label']))
+    return_paper_json_dic['Label'] = paper_json_dic['Label']
+    return return_paper_json_dic
+
 
 def deal_nlp(paper_json_dic):
     ### 拿到json信息之后，处理成文本信息
-    path_read = "F:\\Data\\data\\paper_mixture.json"
+    path_read = "F:\\Data\\paper_mixture.json"
     for line in open(path_read,'r',encoding='utf-8'):
         doi = line['doi']
         Title = line['Title']
@@ -62,22 +87,34 @@ def cut_sentence(sentence):
     from nltk.tokenize import word_tokenize
     from nltk.corpus import stopwords
     from nltk.stem.lancaster import LancasterStemmer
-    print("start:")
+    NNVB = ['CD', 'EX', 'FW', 'LS', 'NN', 'NNS', 'NNP', 'NNPS', 'PDT', 'POS', 'RP', 'VB', 'VBD', 'VBG', 'VBN', 'VBP',
+            'VBZ']
+    # print("start:")
     texts_lower = [word for word in sentence.lower().split()]
-    print(texts_lower)
-    texts_tokenized = [word.lower() for word in word_tokenize(sentence)]
-    texts_tokenized = nltk.pos_tag(texts_tokenized)
-    print(texts_tokenized)
+    # print(texts_lower)
+    texts_tokenized2 = [word.lower() for word in word_tokenize(sentence)]
+    texts_tokenized2 = nltk.pos_tag(texts_tokenized2)
+    texts_tokenized = []
+    for item in texts_tokenized2:
+        if item[1] in NNVB:
+            texts_tokenized.append(item[0])
+        else:
+            continue
+    # print(texts_tokenized)
     english_stopwords = stopwords.words('english')
     texts_filtered_stopwords = [word for word in texts_tokenized if not word in english_stopwords]
     english_punctuations = [',', '.', ':', ';', '?', '(', ')', '[', ']', '&', '!', '*', '@', '#', '$', '%']
     texts_filtered = [word for word in texts_filtered_stopwords if not word in english_punctuations]
     # st = LancasterStemmer()
     # texts_stemmed = [st.stem(word) for word in texts_filtered]
-    return texts_filtered
+    texts_filtered_str = " ".join(texts_filtered)
+    # print(texts_filtered_str)
+    return texts_filtered_str
 
-# 计算共现词语数目
-def sum_word_number(list_1,list_2):
+# 计算共现词语数目,输入是dic
+def sum_word_number(paper_dic1,paper_dic2,p1,p2,p3):
+    paper_dic1
+
     both_have = set(list_1) & set(list_2)
     len_both_have = len(both_have)
     return len_both_have
@@ -88,5 +125,5 @@ def sum_word_number(list_1,list_2):
 
 if __name__ == '__main__':
     start_time = time.time
-
+    # nltk.download()
     dealData()
