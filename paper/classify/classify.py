@@ -107,6 +107,8 @@ def cut_sentence(sentence):
     # print(texts_filtered_str)
     return texts_filtered_str
 
+
+## abstract中英文太多了，所以打算IFIDF处理。取出小于20个左右吧。
 def dealSim():
     # 建立论文的字典，key是ID，value是paper的json转成的dic
     papers_dic = {}
@@ -115,7 +117,8 @@ def dealSim():
     path_read = "F:\\Data\\mixture\\paper_mixture.json"
     read_lines = open(path_read, 'r', encoding='utf-8')
     for line in read_lines:
-        json_data = json.load(line)
+        # print(line)
+        json_data = json.loads(line)
         papers_dic[id_count] = json_data
         id_count += 1
     read_lines.close()
@@ -132,7 +135,9 @@ def dealSim():
                 if write_count % 1000 == 0:
                     write_lines.write(write_sim)
                     write_sim = ""
-
+                # 计数计时
+                if write_count %100000 ==0:
+                    print("write count number: "+str(write_count)+"\n"+"cost time: "+str(time.time()-start_time))
                 sum_words =sum_word_number(papers_dic[paper_i],papers_dic[paper_j],2,1,2)
                 if sum_words >0:
                     write_sim += str(paper_i)+" "+str(paper_j)+" "+str(sum_words)+"\n"
@@ -140,17 +145,20 @@ def dealSim():
     write_lines.close()
 
 # 计算共现词语数目,输入是paper_dic
-def sum_word_number(paper_dic1,paper_dic2,w_title=2,w_abstract=1,w_keywords=2):
+def sum_word_number(paper_dic1,paper_dic2,w_title=3,w_abstract=2,w_keywords=1):
     if paper_dic1['doi'] == paper_dic2['doi']:
         return -1
     else:
         w_title_scores = w_title * len(set(paper_dic1['Title'].split(" "))&set(paper_dic2['Title'].split(" ")))
         w_abstract_scores = w_abstract * len(set(paper_dic1['Abstract'].split(" "))&set(paper_dic2['Abstract'].split(" ")))
-        w_keywords_scores = w_keywords * len(set(paper_dic1['Keywords'].replace("•",""))&set(paper_dic2['Keywords'].replace("•","")))
-        return sum(w_title_scores+w_abstract_scores+w_keywords_scores)
+        w_keywords_scores = w_keywords * len(set(paper_dic1['Keywords'].split("• "))&set(paper_dic2['Keywords'].split("• ")))
+        # print(paper_dic1['Keywords'].split("• "),paper_dic2['Keywords'].split("• "))
+        sum_w  = w_title_scores + w_abstract_scores + w_keywords_scores
+        # print(sum_w)
+        return sum_w
 
 if __name__ == '__main__':
     start_time = time.time
     # nltk.download()
-    dealData()
+    # dealData()
     dealSim()
