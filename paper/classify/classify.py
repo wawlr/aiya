@@ -43,13 +43,9 @@ def dealData():
                 return_paper_json_dic = deal_nlp_dic(line2)
                 json_info = json.dumps(return_paper_json_dic, sort_keys=True)
                 write_lines.write(json_info+"\n")
-                # print("JSON输出：")
-                # print(type(json_info))
-                # print(json_info)
-                # texts_stemmed = cut_sentence(line2['Title'])
-                # print(texts_stemmed)
-
     write_lines.close()
+
+
 
 
 def deal_nlp_dic(paper_json_dic):
@@ -111,19 +107,50 @@ def cut_sentence(sentence):
     # print(texts_filtered_str)
     return texts_filtered_str
 
-# 计算共现词语数目,输入是dic
-def sum_word_number(paper_dic1,paper_dic2,p1,p2,p3):
-    paper_dic1
+def dealSim():
+    # 建立论文的字典，key是ID，value是paper的json转成的dic
+    papers_dic = {}
+    id_count = 0
+    # 存数据入论文字典里
+    path_read = "F:\\Data\\mixture\\paper_mixture.json"
+    read_lines = open(path_read, 'r', encoding='utf-8')
+    for line in read_lines:
+        json_data = json.load(line)
+        papers_dic[id_count] = json_data
+        id_count += 1
+    read_lines.close()
+    # 计算相似度（词共现情况）,并保存下来
+    path_write = "F:\\Data\\mixture\\paper_mixture_simmilarity.txt"
+    write_lines = open(path_write, 'w', encoding='utf-8')
+    write_sim = ""
+    write_count = 0
+    for paper_i in papers_dic.keys():
+        for paper_j in papers_dic.keys():
+            if paper_i < paper_j:
+                write_count += 1
+                # 一千次写一次
+                if write_count % 1000 == 0:
+                    write_lines.write(write_sim)
+                    write_sim = ""
 
-    both_have = set(list_1) & set(list_2)
-    len_both_have = len(both_have)
-    return len_both_have
+                sum_words =sum_word_number(papers_dic[paper_i],papers_dic[paper_j],2,1,2)
+                if sum_words >0:
+                    write_sim += str(paper_i)+" "+str(paper_j)+" "+str(sum_words)+"\n"
+    write_lines.write(write_sim)
+    write_lines.close()
 
-
-
-
+# 计算共现词语数目,输入是paper_dic
+def sum_word_number(paper_dic1,paper_dic2,w_title=2,w_abstract=1,w_keywords=2):
+    if paper_dic1['doi'] == paper_dic2['doi']:
+        return -1
+    else:
+        w_title_scores = w_title * len(set(paper_dic1['Title'].split(" "))&set(paper_dic2['Title'].split(" ")))
+        w_abstract_scores = w_abstract * len(set(paper_dic1['Abstract'].split(" "))&set(paper_dic2['Abstract'].split(" ")))
+        w_keywords_scores = w_keywords * len(set(paper_dic1['Keywords'].replace("•",""))&set(paper_dic2['Keywords'].replace("•","")))
+        return sum(w_title_scores+w_abstract_scores+w_keywords_scores)
 
 if __name__ == '__main__':
     start_time = time.time
     # nltk.download()
     dealData()
+    dealSim()
