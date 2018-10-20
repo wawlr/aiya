@@ -11,6 +11,8 @@ import nltk
 from gensim.corpora import Dictionary
 from gensim.corpora import MmCorpus
 from gensim.models import TfidfModel
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn.feature_extraction.text import CountVectorizer
 # 读入数据 获取核心的词语（名次、动词类） 打上类别标签。处理好原始的数据集
 # 处理后的原始数据的格式：ID，doi，文本信息（title和fos放在一起高权重，摘要放在一起低权重，这个地方权重可调节比较好），标签
 
@@ -114,7 +116,7 @@ def cut_sentence(sentence):
     return texts_filtered_str
 
 # 处理tfidf，减小title和abstract的词语数目，更具有每篇文章的特征
-def deal_tfidf(return_words_number):
+def train_tfidf(return_words_number = 20):
     # 建立论文的字典，key是ID，value是paper的json转成的dic
     papers_dic = {}
     id_count = 0
@@ -130,34 +132,85 @@ def deal_tfidf(return_words_number):
     read_lines.close()
     # 生成语料 corpus_orgin
     corpus_orgin = []
-    for id in id_count:
+    for id in range(id_count):
         paper_json_data = papers_dic[id]
-        title_list = paper_json_data['Title'].split(" ")
-        abstract_list = paper_json_data['Abstract'].split(" ")
-        paper_words = title_list.extend(abstract_list)
+        title_list = paper_json_data['Title']
+        abstract_list = paper_json_data['Abstract']
+        # print(abstract_list)
+        paper_words = paper_json_data['Title']+" "+paper_json_data['Abstract']
         corpus_orgin.append(paper_words)
     # 对title和abstract进行 tfidf 训练
-    id2word = {}
-    # 生成并保存字典
-    dictionary = Dictionary(corpus_orgin)
-    dictionary.save("F:\\Data\\mixture\\model\\dict")
-    # 将文档转换成词袋(bag of words)模型
-    corpus = [dictionary.doc2bow(text) for text in corpus_orgin]
-    # 保存生成的语料
-    MmCorpus.serialize('F:\\Data\\mixture\\model\\corpuse.mm', corpus)
-    del corpus_orgin
-    corpus_tfidf = []
-def train():
-    id2word = {}
-    corpus = MmCorpus("./model_repository/corpuse.mm")
-    dictionary = Dictionary.load("./model_repository/dict")
-    tfidf = TfidfModel.load("./model_repository/tfidf.model")
+    vectorizer = CountVectorizer()  # 该类会将文本中的词语转换为词频矩阵，矩阵元素a[i][j] 表示j词在i类文本下的词频
+    transformer = TfidfTransformer()  # 该类会统计每个词语的tf-idf权值
+    tfidf = transformer.fit_transform(
+        vectorizer.fit_transform(corpus_orgin))  # 第一个fit_transform是计算tf-idf，第二个fit_transform是将文本转为词频矩阵
+    word = vectorizer.get_feature_names()  # 获取词袋模型中的所有词语
+    # 输出非零元素对应的行坐标和列坐标
+    nonzero = tfidf.nonzero() # m = nonzero[0][i]是代表第m篇文章，n = nonzero[1][p]是代表词袋模型第n个词
+    return_list = get_tfidf_words(tfidf,word,return_words_number)
 
-    tfidfModel = TfidfModel(corpus=corpus, id2word=id2word, dictionary=dictionary)
-    tfidfModel.save("F:\\Data\\mixture\\model\\tfidf.model")
+    # 写数据
+    # 存数据入论文字典里
+    print("write file: ")
+    path_write = "F:\\Data\\mixture\\mixpaper_tfidf_words.json"
+    write_lines = open(path_write, 'w', encoding='utf-8')
+    tfidf_dic = {}
+    for i in range(len(return_list)):
+        tfidf_dic[i] = return_list[i]
+    for id in papers_dic.keys():
+        paper_json = papers_dic[id]
+        paper_json["tfidf"] = return_list[id]
+        # paper_json["tfidf"] = ",".join(return_list[id])
+        json_info = json.dumps(paper_json, sort_keys=True)
+        write_lines.write(json_info + "\n")
+    write_lines.close()
+
+
+def write_tfidf_words():
+    paper_dic = {}
+    return paper_dic
+
+def get_tfidf_words(tfidf,word,return_words_number):
+    nonzero = tfidf.nonzero() # m = nonzero[0][i]是代表第m篇文章，n = nonzero[1][p]是代表词袋模型第n个词
+    k = 0  # k用来记录是不是一条记录结束了
+    a_dic = {}
+    words_return = []
+    gather = []
+    p = -1  # p用来计数，每走一遍循环+1
+    for i in nonzero[0]:  # i不一定每循环就+1的，它是nonzero【0】里的数，不懂可以看之前输出的nonzero【0】
+        p = p + 1
+        # print(i, nonzero[1][p])
+        if k == i:
+            a_dic[word[nonzero[1][p]]] = tfidf[i, nonzero[1][p]]
+        else:
+            a_dic = sorted(a_dic.items(), key=lambda x: x[1], reverse=True)  # 对字典对象的排序
+            # 返回的特征词数目
+            words_return = []
+            if len(a_dic) < return_words_number:
+                return_words_number = len(a_dic)
+            for iter_i in range(return_words_number):
+                words_return.append(a_dic[iter_i][0])
+            # print("a_dic: " + str(a_dic))
+            # print("words_return: " + str(words_return))
+            gather.append(words_return)
+            while k < i:
+                k = k + 1
+            a_dic = {}
+            # print("a[word[p]] = tfidf[i, nonzero[1][p]]："+str(word[p])+"  ")
+            a_dic[word[nonzero[1][p]]] = tfidf[i, nonzero[1][p]]
+    # print("words_return: " + str(words_return))
+    gather.append(words_return)
+    # print(gather)
+    return gather
+
+# 输入语料
+def test_tfidf(corpus):
+    id2word = {}
+    corpus = MmCorpus("F:\\Data\\mixture\\model\\corpuse.mm")
+    dictionary = Dictionary.load("F:\\Data\\mixture\\model\\dict")
+    tfidfModel = TfidfModel.load("F:\\Data\\mixture\\model\\tfidf.model")
     corpus_tfidf = tfidfModel[corpus]
-train()
-
+    return corpus_tfidf
 
 ## abstract中英文太多了，所以打算IFIDF处理。取出小于20个左右吧。
 def dealSim():
@@ -211,5 +264,6 @@ def sum_word_number(paper_dic1,paper_dic2,w_title=3,w_abstract=2,w_keywords=1):
 if __name__ == '__main__':
     start_time = time.time
     # nltk.download()
-    dealData()
+    # dealData()
     # dealSim()
+    train_tfidf(10)
